@@ -1,14 +1,10 @@
 import time
-from urllib.parse import urljoin
+from config import technologies
 import csv
 from bs4 import BeautifulSoup
 import httpx
-import requests
 
 import asyncio
-
-
-from dataclasses import dataclass
 
 URL = "https://djinni.co/jobs/?primary_keyword=Python"
 
@@ -39,13 +35,27 @@ def get_num_jobs(url: str = URL):
 def get_clean_description(vacancy_soup: BeautifulSoup):
     description_element = vacancy_soup.select_one(".job-list-item__description > span")
     description = (
-        description_element.get("data-original-text", "").strip().rstrip().lower()
+        description_element.get("data-original-text", "")
+        .replace("<br/>", "")
+        .replace(")", "")
+        .replace("(", "")
+        .replace(".", "")
+        .replace(",", "")
+        .replace(":", "")
+        .replace(";", "")
+        .replace(" ", "")
+        .replace("-", "")
+        .strip()
+        .rstrip()
+        .lower()
     )
     description = BeautifulSoup(description, "html.parser").get_text()
     return description
 
 
-def parse_single_page_jobs(page: int, client: httpx.Client = httpx.Client(), url: str = URL):
+def parse_single_page_jobs(
+    page: int, client: httpx.Client = httpx.Client(), url: str = URL
+):
     response = client.get(url, params={"page": page})
     soup = BeautifulSoup(response.content, "html.parser")
 
@@ -77,12 +87,21 @@ def parse_all_pages():
     return all_jobs_descriptions
 
 
+def techs_counter():
+    jobs_list = parse_all_pages()
+    for job_page in jobs_list:
+        for job in job_page:
+            for key in technologies.keys():
+                if key.lower() in job:
+                    technologies[key] += 1
+
+
 def main() -> None:
-    for i in parse_all_pages():
-        print(i)
+    techs_counter()
+    print(technologies)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     start = time.perf_counter()
     num_pages = get_num_pages()
     print(f"Number of pages is {num_pages}")
